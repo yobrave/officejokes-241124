@@ -1,35 +1,47 @@
-"""Office joke, one line, hand carried.
-
-The constant below is the whole cargo. The run writes it out, reads the
-file back, and quits clean only on an exact match.MAKEFUN_OUTPUT_DIR
-relocates the drop point; arguments are ignored on purpose.
-"""
+"""Office joke dispatch: one line under 200 chars, sent to the judge tray."""
+import json
 import os
-import sys
 
-CARGO = ("HR said we can expense one work dinner a month, so I've "
-         "started scheduling my worst meetings at restaurants.")
-STAMP = "oji2"
-LEG = "second-leg"
+BADGE = "oji3-cubicle"
+ROOF = 199
 
 
-def hand_carry(root):
-    base = root or "output"
-    os.makedirs(base, exist_ok=True)
-    target = os.path.join(base, "entry.txt")
-    raw = CARGO.encode("utf-8")
-    with open(target, "wb") as pen:
-        pen.write(raw)
-    with open(target, "rb") as eye:
-        seen = eye.read()
-    return seen.decode("utf-8").strip()
+def pipeline(raw_text):
+    rows = filter(
+        None,
+        map(lambda r: r.rstrip("\r"), raw_text.replace("\r\n", "\n").split("\n")),
+    )
+    rows = list(rows)
+    return rows[0].strip() and rows[0] or ""
 
 
-def check():
-    got = hand_carry(os.environ.get("MAKEFUN_OUTPUT_DIR"))
-    if got != CARGO:
-        sys.exit("cargo mismatch on the way back")
-    print(STAMP, LEG, len(got), "chars ok")
+def measure(line):
+    return len(line)
 
 
-check()
+def discharge(line, base):
+    tray = os.environ.get("MAKEFUN_OUTPUT_DIR") or os.path.join(base, "output")
+    os.makedirs(tray, exist_ok=True)
+    dest = os.path.join(tray, "entry.txt")
+    payload = line.encode("utf-8")
+    with open(dest, "wb") as chute:
+        chute.write(payload)
+    with open(dest, "rb") as confirm:
+        same = confirm.read() == payload
+    return dest, same
+
+
+base = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(base, "entry.txt"), encoding="utf-8") as f:
+    raw = f.read()
+
+line = pipeline(raw)
+size = measure(line)
+if not line or size > ROOF or size < 1:
+    print(json.dumps({"final": "pocket", "size": size}))
+    raise SystemExit(1)
+
+dest, same = discharge(line, base)
+if not same:
+    raise SystemExit("discharge mismatch")
+print(json.dumps({"final": "pinned", "size": size, "badge": BADGE, "to": os.path.basename(dest), "line_ok": line == line.strip()}))
